@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  hospital_a_db:
+    image: postgres:16
+    container_name: hospital_a_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${HOSPITAL_A_USER}
+      POSTGRES_PASSWORD: ${HOSPITAL_A_PASSWORD}
+      POSTGRES_DB: hospital_a
+    ports:
+      - "5433:5432"
+    volumes:
+      - hospital_a_data:/var/lib/postgresql/data
+      - ./init/hospital_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  hospital_b_db:
+    image: postgres:16
+    container_name: hospital_b_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${HOSPITAL_B_USER}
+      POSTGRES_PASSWORD: ${HOSPITAL_B_PASSWORD}
+      POSTGRES_DB: hospital_b
+    ports:
+      - "5434:5432"
+    volumes:
+      - hospital_b_data:/var/lib/postgresql/data
+      - ./init/hospital_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  hospital_c_db:
+    image: postgres:16
+    container_name: hospital_c_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${HOSPITAL_C_USER}
+      POSTGRES_PASSWORD: ${HOSPITAL_C_PASSWORD}
+      POSTGRES_DB: hospital_c
+    ports:
+      - "5435:5432"
+    volumes:
+      - hospital_c_data:/var/lib/postgresql/data
+      - ./init/hospital_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  auth_db:
+    image: postgres:16
+    container_name: auth_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+      POSTGRES_DB: auth_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+      - ./init/auth_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  audit_db:
+    image: postgres:16
+    container_name: audit_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AUDIT_DB_USER}
+      POSTGRES_PASSWORD: ${AUDIT_DB_PASSWORD}
+      POSTGRES_DB: audit_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - audit_data:/var/lib/postgresql/data
+      - ./init/audit_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  hospital_a_data:
+  hospital_b_data:
+  hospital_c_data:
+  auth_data:
+  audit_data:
