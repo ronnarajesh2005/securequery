@@ -1,0 +1,4 @@
+# SecureQuery - Track B: NLP-to-SQL Pipeline Dependencies
+sqlglot>=25.0.0
+requests>=2.31.0
+pytest>=8.0.0
