@@ -57,28 +57,59 @@ def dashboard_login(payload: dict, db: Session = Depends(get_auth_db)):
 
 
 @router.get("/analytics/hospital-comparison")
-def hospital_comparison(db: Session = Depends(get_auth_db)):
+def hospital_comparison(current_researcher: Researcher = Depends(get_current_researcher),
+                         db: Session = Depends(get_auth_db)):
     conditions = ["Diabetes", "Hypertension", "Cardiovascular"]
     patterns = ["diabetes", "hypertension", "cardio"]
+
+    # Determine active hospital scope based on researcher role — same rule as /api/query
+    if getattr(current_researcher, "role", "researcher") == "doctor":
+        scope = getattr(current_researcher, "hospital_scope", None) or "hospital_a"
+        if scope not in HOSPITAL_META:
+            raise HTTPException(403, f"Doctor hospital scope '{scope}' is invalid")
+        active_hospitals = {scope: HOSPITAL_META[scope]}
+    else:
+        active_hospitals = HOSPITAL_META
+
     data = []
     for cond, pattern in zip(conditions, patterns):
-        row = {"condition": cond}
-        for hid, meta in HOSPITAL_META.items():
+        total = 0
+        for hid in active_hospitals:
             sql = f"SELECT COUNT(DISTINCT patient_id) FROM conditions WHERE LOWER(condition_desc) LIKE '%{pattern}%'"
-            row[meta["id"]] = run_sql_on_hospital(hid, sql)
+            total += run_sql_on_hospital(hid, sql)
+        # Privacy fix: never expose per-hospital raw values — only the
+        # combined total across the researcher's authorized scope is safe
+        # to disclose. Per-hospital breakdown stays isolated, same rule as
+        # /api/query and /query/ask.
+        row = {"condition": cond, "total": total}
+        for hid, meta in active_hospitals.items():
+            row[meta["id"]] = "isolated"
         data.append(row)
-    return {"conditions": conditions, "hospitals": ["Hospital A", "Hospital B", "Hospital C"], "data": data}
+
+    return {
+        "conditions": conditions,
+        "hospitals": [meta["name"] for meta in active_hospitals.values()],
+        "data": data,
+    }
 
 
 @router.get("/analytics/trends")
-def prevalence_trends(db: Session = Depends(get_auth_db)):
+def prevalence_trends(current_researcher: Researcher = Depends(get_current_researcher),
+                       db: Session = Depends(get_auth_db)):
+    if getattr(current_researcher, "role", "researcher") == "doctor":
+        scope = getattr(current_researcher, "hospital_scope", None) or "hospital_a"
+        if scope not in HOSPITAL_META:
+            raise HTTPException(403, f"Doctor hospital scope '{scope}' is invalid")
+        active_hospitals = {scope: HOSPITAL_META[scope]}
+    else:
+        active_hospitals = HOSPITAL_META
+
     years_row = None
-    series = []
     totals_by_year = {}
 
-    for hid, meta in HOSPITAL_META.items():
+    for hid, meta in active_hospitals.items():
         sql = (
-            "SELECT EXTRACT(YEAR FROM start_date)::int AS yr, COUNT(DISTINCT patient_id) "
+            "SELECT EXTRACT(YEAR FROM onset_date)::int AS yr, COUNT(DISTINCT patient_id) "
             "FROM conditions WHERE LOWER(condition_desc) LIKE '%diabetes%' "
             "GROUP BY yr ORDER BY yr"
         )
@@ -89,7 +120,8 @@ def prevalence_trends(db: Session = Depends(get_auth_db)):
         try:
             cur.execute(sql)
             rows = cur.fetchall()
-        except Exception:
+        except Exception as e:
+            print(f"[{hid}] TRENDS SQL ERROR: {e}")
             rows = []
         finally:
             cur.close()
@@ -100,15 +132,18 @@ def prevalence_trends(db: Session = Depends(get_auth_db)):
             years_row = sorted(year_counts.keys())[-5:] if year_counts else list(range(2020, 2025))
 
         values = [year_counts.get(y, 0) for y in years_row]
-        series.append({"hospital_id": meta["id"], "hospital_name": meta["name"], "values": values})
         for y, v in zip(years_row, values):
             totals_by_year[y] = totals_by_year.get(y, 0) + v
 
-    series.append({
+    # Privacy fix: only the cross-hospital (or single-scope, for doctors)
+    # total series is disclosed. Per-hospital series are dropped entirely
+    # rather than masked-but-present, since even a masked series per hospital
+    # still leaks which hospitals exist in the scope via array position.
+    series = [{
         "hospital_id": "TOTAL",
-        "hospital_name": "Cross-Hospital SMPC Total",
+        "hospital_name": "Cross-Hospital SMPC Total" if len(active_hospitals) > 1 else list(active_hospitals.values())[0]["name"],
         "values": [totals_by_year.get(y, 0) for y in years_row],
-    })
+    }]
 
     return {"years": years_row, "series": series}
 
