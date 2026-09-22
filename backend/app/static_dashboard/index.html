@@ -4,14 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics</title>
-  
+
+  <!-- Gate: no token in this browser session -> straight to login, before anything renders -->
+  <script>
+    if (!sessionStorage.getItem('sq_token')) {
+      window.location.replace('/dashboard/login.html');
+    }
+  </script>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  
+
   <!-- Fixed: static mount is at /dashboard, not /static -->
   <link rel="stylesheet" href="/dashboard/styles.css" />
 </head>
@@ -22,7 +29,7 @@
   <!-- ========================================================================= -->
   <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-50 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      
+
       <!-- Brand & Badges -->
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -71,17 +78,22 @@
         </div>
 
         <!-- Backend Status Pill -->
-        <div id="backendStatusPill" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="backendStatusText">Backend Connected</span>
+        <div id="backendStatusPill" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-slate-500/10 text-slate-400 border-slate-500/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
+          <span id="backendStatusText">Not Logged In (Simulated)</span>
         </div>
 
-        <!-- Researcher Profile Pill -->
-        <button onclick="openLoginModal()" class="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs transition">
+        <!-- Researcher Identity (read-only) -->
+        <div class="flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
           <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
-          <span id="headerResearcherName" class="font-medium text-slate-200">Dr. Aditi Sharma</span>
-          <span class="text-slate-500 font-mono">R001</span>
-          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+          <span id="headerResearcherName" class="font-medium text-slate-200">Not Logged In</span>
+          <span id="headerResearcherId" class="text-slate-500 font-mono"></span>
+        </div>
+
+        <!-- Log out -->
+        <button onclick="logout()" class="flex items-center space-x-1.5 bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-800 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:text-rose-300 transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Log out</span>
         </button>
       </div>
 
@@ -123,11 +135,11 @@
     <!-- VIEW 1: QUERY STUDIO (Researcher View + Split-Screen Transparency)   -->
     <!-- ===================================================================== -->
     <section id="viewQuery" class="space-y-6">
-      
+
       <!-- Query Input Box & Presets -->
       <div class="glass-panel p-5 sm:p-6 rounded-2xl shadow-xl relative overflow-hidden">
         <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
-        
+
         <div class="space-y-3">
           <div class="flex items-center justify-between">
             <label class="text-sm font-semibold text-slate-300 flex items-center space-x-2">
@@ -142,15 +154,15 @@
 
           <!-- Main Input Field -->
           <form id="queryForm" onsubmit="handleQuerySubmit(event)" class="relative flex items-center">
-            <input 
-              type="text" 
-              id="queryInput" 
-              value="How many diabetic patients across Hospital A, B, C?" 
+            <input
+              type="text"
+              id="queryInput"
+              value="How many diabetic patients across Hospital A, B, C?"
               placeholder="e.g. How many diabetic patients across Hospital A, B, C?"
               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 pr-32 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner font-normal"
             />
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               id="submitBtn"
               class="absolute right-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-blue-600/30 flex items-center space-x-1.5 transition active:scale-95 disabled:opacity-50"
             >
@@ -180,10 +192,10 @@
 
       <!-- Live Results Area (Dynamic Split-Screen vs Full Width) -->
       <div id="resultsContainer" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         <!-- LEFT COLUMN: Researcher Clinical Results -->
         <div id="researcherResultCol" class="lg:col-span-5 space-y-6">
-          
+
           <!-- Aggregated Metric Card -->
           <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 relative overflow-hidden">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -212,7 +224,7 @@
                 <span>Below Disclosure Threshold</span>
               </div>
               <p class="text-xs text-amber-200/80 leading-relaxed">
-                This cohort size is below the mandatory DPDP k-anonymity threshold (<span class="font-mono font-bold">k &lt; 5</span>). 
+                This cohort size is below the mandatory DPDP k-anonymity threshold (<span class="font-mono font-bold">k &lt; 5</span>).
                 To protect patient re-identification privacy, individual counts are intentionally suppressed.
               </p>
               <div class="text-[11px] font-mono text-amber-300/60 pt-1">
@@ -284,9 +296,9 @@
 
         <!-- RIGHT COLUMN: The Technical Transparency Split-Screen View -->
         <div id="transparencyCol" class="lg:col-span-7 space-y-4">
-          
+
           <div class="glass-panel p-6 rounded-2xl border border-blue-500/20 shadow-2xl relative">
-            
+
             <!-- Transparency Header & Step Controls -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
               <div>
@@ -398,7 +410,7 @@
     <!-- VIEW 2: ANALYTICS DASHBOARD (Trends & Cross-Hospital Comparison)     -->
     <!-- ===================================================================== -->
     <section id="viewAnalytics" class="space-y-6 hidden">
-      
+
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-xl font-bold text-white">SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics</h2>
@@ -445,7 +457,7 @@
 
       <!-- Charts Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         <!-- Trend Chart: Year-over-Year Prevalence -->
         <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
           <div class="flex items-center justify-between">
@@ -505,52 +517,6 @@
     </section>
 
   </main>
-
-  <!-- ========================================================================= -->
-  <!-- Researcher Auth / Login Modal                                            -->
-  <!-- ========================================================================= -->
-  <div id="loginModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="glass-panel max-w-md w-full p-6 rounded-2xl border border-slate-700 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="shield" class="w-5 h-5 text-blue-400"></i>
-          <h3 class="font-bold text-white text-sm">Researcher DPDP Authorization</h3>
-        </div>
-        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-3 text-xs">
-        <div>
-          <label class="block text-slate-400 mb-1">Researcher ID / Username</label>
-          <input type="text" id="loginUsername" value="researcher_r001" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
-        </div>
-        <div>
-          <label class="block text-slate-400 mb-1">Access Credential</label>
-          <input type="password" id="loginPassword" value="••••••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
-        </div>
-        <div>
-          <label class="block text-slate-400 mb-1">DPDP Purpose</label>
-          <select id="loginPurpose" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white">
-            <option value="EPIDEMIOLOGICAL_RESEARCH">EPIDEMIOLOGICAL_RESEARCH (Approved)</option>
-            <option value="PUBLIC_HEALTH_SURVEILLANCE">PUBLIC_HEALTH_SURVEILLANCE (Approved)</option>
-            <option value="COMMERCIAL_MARKETING">COMMERCIAL_MARKETING (Unauthorized)</option>
-          </select>
-        </div>
-
-        <div class="p-3 rounded-lg bg-blue-950/40 border border-blue-900/60 text-[11px] text-blue-200">
-          <strong>Consent ID:</strong> CONSENT-DPDP-2024-9841<br/>
-          <strong>Section:</strong> India DPDP Act 2023 Sec 4(1)
-        </div>
-
-        <div class="pt-2 flex items-center justify-end space-x-2">
-          <button type="button" onclick="closeLoginModal()" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">Cancel</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium">Verify & Login</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- Fixed: static mount is at /dashboard, not /static -->
   <script src="/dashboard/app.js" defer></script>

@@ -1,6 +1,7 @@
-import os
 import re
 import requests
+
+from app.core.config import settings
 
 
 def _get_mock_fallback_sql(prompt: str) -> str:
@@ -33,7 +34,31 @@ def _get_mock_fallback_sql(prompt: str) -> str:
 SELECT COUNT(DISTINCT patient_id) AS patient_count
 FROM conditions
 WHERE LOWER(condition_desc) LIKE '%diabetes%';
-```"""
+```````"""
+
+    # Hypertension query
+    if "hypertens" in prompt_lower or "blood pressure" in prompt_lower:
+        return """```sql
+SELECT COUNT(DISTINCT patient_id) AS patient_count
+FROM conditions
+WHERE LOWER(condition_desc) LIKE '%hypertension%';
+``````"""
+
+    # Cardiovascular query
+    if "cardio" in prompt_lower or "heart" in prompt_lower:
+        return """```sql
+SELECT COUNT(DISTINCT patient_id) AS patient_count
+FROM conditions
+WHERE LOWER(condition_desc) LIKE '%cardio%';
+`````"""
+
+    # Metformin query
+    if "metformin" in prompt_lower:
+        return """```sql
+SELECT COUNT(DISTINCT patient_id) AS patient_count
+FROM medications
+WHERE LOWER(drug_name) LIKE '%metformin%';
+````"""
 
     # Default query
     return """```sql
@@ -50,10 +75,7 @@ def call_ollama(prompt: str) -> str:
     If Ollama is unavailable, falls back to mock SQL.
     """
 
-    mock_mode = os.getenv(
-        "MOCK_OLLAMA",
-        "true"
-    ).lower() in ("true", "1", "yes")
+    mock_mode = settings.mock_ollama
 
     # Use mock mode
     if mock_mode:
@@ -63,7 +85,7 @@ def call_ollama(prompt: str) -> str:
     url = "http://localhost:11434/api/generate"
 
     payload = {
-        "model": "qwen2.5-coder",
+        "model": "qwen2.5-coder:1.5b",
         "prompt": prompt,
         "stream": False
     }
@@ -72,7 +94,7 @@ def call_ollama(prompt: str) -> str:
         response = requests.post(
             url,
             json=payload,
-            timeout=10
+            timeout=30
         )
 
         response.raise_for_status()

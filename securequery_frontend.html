@@ -346,6 +346,8 @@
       <textarea id="question-input" placeholder="e.g. How many diabetes patients per hospital?"></textarea>
       <div class="row">
         <select id="purpose-select">
+          <option value="EPIDEMIOLOGICAL_RESEARCH">EPIDEMIOLOGICAL_RESEARCH</option>
+          <option value="PUBLIC_HEALTH_SURVEILLANCE">PUBLIC_HEALTH_SURVEILLANCE</option>
           <option value="diabetes_surveillance">Diabetes surveillance</option>
           <option value="hypertension_surveillance">Hypertension surveillance</option>
         </select>
@@ -383,11 +385,6 @@
     loginView.classList.remove("hidden");
     appView.classList.add("hidden");
   }
-  function showApp() {
-    loginView.classList.add("hidden");
-    appView.classList.remove("hidden");
-    whoEmail.textContent = userEmail || "";
-  }
 
   async function handleLogin() {
     const email = document.getElementById("login-email").value.trim();
@@ -424,7 +421,9 @@
       const data = await res.json();
       token = data.access_token;
       userEmail = email;
-      showApp();
+
+      // Redirect directly to backend dashboard view after successful auth
+      window.location.href = "http://127.0.0.1:8000/dashboard";
     } catch (e) {
       loginErr.textContent = "Couldn't reach the server. Is the backend running on localhost:8000?";
       loginErr.classList.add("show");

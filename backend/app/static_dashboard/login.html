@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureQuery — Researcher Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/dashboard/styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 antialiased">
+
+  <div class="glass-panel max-w-md w-full p-6 rounded-2xl border border-slate-700 shadow-2xl space-y-4">
+    <div class="flex items-center space-x-2 border-b border-slate-800 pb-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+        <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-sm text-white">SecureQuery</h1>
+        <p class="text-[11px] text-slate-400">Researcher DPDP Authorization</p>
+      </div>
+    </div>
+
+    <div id="loginError" class="hidden p-2.5 rounded-lg bg-rose-950/50 border border-rose-800/60 text-[11px] text-rose-300"></div>
+
+    <form id="loginForm" class="space-y-3 text-xs">
+      <div>
+        <label class="block text-slate-400 mb-1">Researcher Email</label>
+        <input type="email" id="loginEmail" placeholder="dr_hospital_a@securequery.org" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
+      </div>
+      <div>
+        <label class="block text-slate-400 mb-1">Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter your password" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
+      </div>
+      <div>
+        <label class="block text-slate-400 mb-1">DPDP Purpose</label>
+        <select id="loginPurpose" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white">
+          <option value="EPIDEMIOLOGICAL_RESEARCH">EPIDEMIOLOGICAL_RESEARCH (Approved)</option>
+          <option value="PUBLIC_HEALTH_SURVEILLANCE">PUBLIC_HEALTH_SURVEILLANCE (Approved)</option>
+          <option value="COMMERCIAL_MARKETING">COMMERCIAL_MARKETING (Unauthorized)</option>
+        </select>
+      </div>
+
+      <div class="p-3 rounded-lg bg-blue-950/40 border border-blue-900/60 text-[11px] text-blue-200">
+        Logs in against the real <span class="font-mono">/auth/login</span> endpoint. Your role and hospital scope are read from your account, not chosen here.
+      </div>
+
+      <button type="submit" id="loginSubmitBtn" class="w-full px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition disabled:opacity-50">
+        Log In
+      </button>
+    </form>
+  </div>
+
+  <script>
+    // Same origin-detection logic as the dashboard's app.js
+    const API_BASE = (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8000'))
+      ? 'http://127.0.0.1:8000'
+      : window.location.origin;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const purpose = document.getElementById('loginPurpose').value;
+      const errorBox = document.getElementById('loginError');
+      const btn = document.getElementById('loginSubmitBtn');
+
+      errorBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (!res.ok) {
+          let detail = `Login failed (status ${res.status})`;
+          try {
+            const errBody = await res.json();
+            if (errBody && errBody.detail) {
+              detail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
+            }
+          } catch (_) { /* ignore */ }
+          throw new Error(detail);
+        }
+
+        const data = await res.json();
+        sessionStorage.setItem('sq_token', data.access_token);
+        sessionStorage.setItem('sq_email', email);
+        sessionStorage.setItem('sq_purpose', purpose);
+
+        window.location.href = '/dashboard/';
+      } catch (err) {
+        errorBox.textContent = err.message || 'Login failed. Check your email and password.';
+        errorBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Log In';
+      }
+    });
+  </script>
+</body>
+</html>

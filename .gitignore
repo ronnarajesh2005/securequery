@@ -17,7 +17,7 @@ eggs/
 lib/
 lib64/
 parts/
-sdist/
+sdist/seed_doctor_account.py
 var/
 wheels/
 share/python-wheels/
@@ -218,3 +218,15 @@ __marimo__/
 .streamlit/secrets.toml
 # Docker environment variables
 docker/.env
+SecureQuery (2).zip
+SecureQuery (2)/
+track_c.zip
+track_c/
+backend_OLD/
+IAPR7ESV/
+synthea/
+all_variables.txt
+/seed_doctor_account.py
+/seed_doctor_purposes.py
+/seed_dashboard_purposes.py
+/core/hospital_db.py

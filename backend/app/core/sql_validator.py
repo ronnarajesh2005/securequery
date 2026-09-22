@@ -47,6 +47,19 @@ def validate_sql(sql: str, schema: dict) -> dict:
         if unknown_tables:
             errors.append(f"Unknown table(s) referenced: {sorted(unknown_tables)}")
 
+    # Rule 5: block AVG() entirely — averages must be computed as
+    # SUM + COUNT (two separate columns) and divided AFTER SMPC
+    # reconstruction, never averaged directly or secret-shared as a
+    # single value. See dashboard.py for why: additive secret-sharing
+    # is only mathematically valid for sums/counts, not for combining
+    # per-hospital averages into a true cross-hospital average.
+    if tree.find(exp.Avg):
+        errors.append(
+            "AVG() is not permitted. Use SUM(...) AS total_sum and "
+            "COUNT(...) AS total_count as separate columns instead; "
+            "the average is computed after secure aggregation."
+        )
+
     if errors:
         return {"valid": False, "errors": errors, "sql": sql}
 

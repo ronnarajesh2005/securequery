@@ -102,10 +102,10 @@ function getSimulationDataForQuery(question) {
         timestamp: now,
         data: {
           raw_question: question,
-          researcher_id: state.researcher.id,
+          researcher_id: state.researcher.id || "SIM",
           researcher_name: state.researcher.name,
           purpose: state.researcher.purpose,
-          consent_id: state.researcher.consentId
+          consent_id: state.researcher.consentId || "SIMULATED"
         }
       },
       {
@@ -144,8 +144,8 @@ function getSimulationDataForQuery(question) {
         timestamp: now,
         data: {
           authorized: true,
-          researcher_id: state.researcher.id,
-          consent_id: state.researcher.consentId,
+          researcher_id: state.researcher.id || "SIM",
+          consent_id: state.researcher.consentId || "SIMULATED",
           purpose_match: true,
           dpdp_sections: ["Sec. 4 (Lawful Purpose)", "Sec. 7 (Consent Purpose Specification)"]
         }
@@ -233,20 +233,33 @@ function getSimulationDataForQuery(question) {
   };
 }
 
-function updateBackendStatus(isOnline) {
+// -----------------------------------------------------------------------------
+// Backend status pill
+// -----------------------------------------------------------------------------
+function updateBackendStatus(isOnline, reason) {
   const pill = document.getElementById('backendStatusPill');
   const text = document.getElementById('backendStatusText');
   if (!pill || !text) return;
+
   if (isOnline) {
     pill.className = "hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
     text.textContent = "Backend Connected";
+  } else if (reason === 'not_logged_in') {
+    pill.className = "hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-slate-500/10 text-slate-400 border-slate-500/30";
+    text.textContent = "Not Logged In (Simulated)";
   } else {
     pill.className = "hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-amber-500/10 text-amber-400 border-amber-500/30";
     text.textContent = "Simulation Mode";
   }
 }
 
-// Application State
+// -----------------------------------------------------------------------------
+// Application State — hydrated from sessionStorage (set by login.html)
+// -----------------------------------------------------------------------------
+const storedToken = sessionStorage.getItem('sq_token');
+const storedEmail = sessionStorage.getItem('sq_email');
+const storedPurpose = sessionStorage.getItem('sq_purpose') || 'EPIDEMIOLOGICAL_RESEARCH';
+
 const state = {
   currentTab: 'query',
   splitScreen: true,
@@ -260,25 +273,50 @@ const state = {
     comparison: null
   },
   researcher: {
-    id: "R001",
-    name: "Dr. Aditi Sharma",
-    purpose: "EPIDEMIOLOGICAL_RESEARCH",
-    consentId: "CONSENT-DPDP-2024-9841"
+    token: storedToken,
+    email: storedEmail,
+    id: null,
+    name: storedEmail || "Not Logged In",
+    role: null,
+    purpose: storedPurpose,
+    consentId: null
   }
 };
+
+// -----------------------------------------------------------------------------
+// Session helpers
+// -----------------------------------------------------------------------------
+function clearSessionAndRedirectToLogin() {
+  sessionStorage.removeItem('sq_token');
+  sessionStorage.removeItem('sq_email');
+  sessionStorage.removeItem('sq_purpose');
+  window.location.replace('/dashboard/login.html');
+}
+
+function logout() {
+  clearSessionAndRedirectToLogin();
+}
 
 // -----------------------------------------------------------------------------
 // Initialization
 // -----------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
+  // Defensive: index.html's own <head> script already redirects if there's
+  // no token, but bail out here too in case this ever loads without it.
+  if (!state.researcher.token) {
+    clearSessionAndRedirectToLogin();
+    return;
+  }
+
   if (window.lucide) {
     window.lucide.createIcons();
   }
-  
-  // Initialize default query on page load
+
+  document.getElementById('headerResearcherName').textContent = state.researcher.name;
+  const idBadge = document.getElementById('headerResearcherId');
+  if (idBadge) idBadge.textContent = 'Verifying…';
+
   await runQuery("How many diabetic patients across Hospital A, B, C?");
-  
-  // Load analytics data in background
   loadAnalyticsData();
 });
 
@@ -287,20 +325,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 // -----------------------------------------------------------------------------
 function switchTab(tabName) {
   state.currentTab = tabName;
-  
+
   const viewQuery = document.getElementById('viewQuery');
   const viewAnalytics = document.getElementById('viewAnalytics');
   const viewTransparencyFull = document.getElementById('viewTransparencyFull');
-  
+
   const tabBtnQuery = document.getElementById('tabBtnQuery');
   const tabBtnAnalytics = document.getElementById('tabBtnAnalytics');
   const tabBtnTransparency = document.getElementById('tabBtnTransparency');
-  
+
   // Hide all views
   viewQuery.classList.add('hidden');
   viewAnalytics.classList.add('hidden');
   viewTransparencyFull.classList.add('hidden');
-  
+
   // Reset tab button styles
   [tabBtnQuery, tabBtnAnalytics, tabBtnTransparency].forEach(btn => {
     btn.className = "px-3 py-1.5 text-xs font-medium rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center space-x-1.5";
@@ -364,27 +402,6 @@ async function handleQuerySubmit(e) {
   await runQuery(question);
 }
 
-let authToken = null;
-
-async function getAuthToken() {
-  if (authToken) return authToken;
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    if (res.ok) {
-      const data = await res.json();
-      authToken = data.access_token;
-      return authToken;
-    }
-  } catch (e) {
-    console.warn("Could not retrieve auth token:", e);
-  }
-  return null;
-}
-
 async function runQuery(question) {
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
@@ -394,32 +411,58 @@ async function runQuery(question) {
   `;
 
   let data = null;
+
   try {
-    const token = await getAuthToken();
-    const reqHeaders = { 'Content-Type': 'application/json' };
-    if (token) {
-      reqHeaders['Authorization'] = `Bearer ${token}`;
+    if (!state.researcher.token) {
+      // Should never happen post-redirect-gate, but stay defensive.
+      clearSessionAndRedirectToLogin();
+      return;
     }
 
     const response = await fetch(`${API_BASE}/api/query?verbose=true`, {
       method: 'POST',
-      headers: reqHeaders,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.researcher.token}`
+      },
       body: JSON.stringify({
         question: question,
         purpose: state.researcher.purpose
       })
     });
 
+    if (response.status === 401) {
+      // Token expired/rejected — a real dashboard shouldn't silently fall
+      // back to simulation once you expect to be logged in. Bounce to login.
+      clearSessionAndRedirectToLogin();
+      return;
+    }
     if (!response.ok) {
       throw new Error(`Server returned status ${response.status}`);
     }
 
     data = await response.json();
     updateBackendStatus(true);
+
+    // Pull the real researcher identity/role/scope straight from the
+    // backend's own audit trail (Step 1), rather than trusting anything
+    // guessed at login time — this is what actually changes per-login.
+    const step1 = data.transparency_steps && data.transparency_steps.find(s => s.step === 1);
+    if (step1 && step1.data) {
+      state.researcher.name = step1.data.researcher_name || state.researcher.email;
+      state.researcher.id = step1.data.researcher_id || null;
+      state.researcher.role = step1.data.role || null;
+      const nameEl = document.getElementById('headerResearcherName');
+      const idEl = document.getElementById('headerResearcherId');
+      if (nameEl) nameEl.textContent = state.researcher.name;
+      if (idEl) idEl.textContent = state.researcher.id
+        ? `${state.researcher.id}${state.researcher.role ? ' · ' + state.researcher.role : ''}`
+        : '';
+    }
   } catch (err) {
-    console.warn(`Backend offline at ${API_BASE} (${err.message}) — using simulation fallback.`);
+    console.warn(`Backend query unavailable (${err.message}) — using simulation fallback.`);
+    updateBackendStatus(false, 'backend_offline');
     data = getSimulationDataForQuery(question);
-    updateBackendStatus(false);
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = `
@@ -431,10 +474,10 @@ async function runQuery(question) {
 
   if (data) {
     state.queryData = data;
-    
+
     // Update Researcher Results UI
     updateResearcherResults(data);
-    
+
     // Reset and select Step 1
     selectStep(1);
 
@@ -502,6 +545,10 @@ function renderQueryBarChart(data) {
   }
 
   const labels = data.breakdown.map(b => b.hospital_name.split(' ')[0] + ' ' + b.hospital_name.split(' ')[1]);
+  // Real backend never sends numeric per-hospital counts (privacy fix —
+  // it always sends "Data isolated"), so these bars intentionally render
+  // flat/zero for real data. That is correct: even relative hospital size
+  // is exactly what SMPC exists to hide.
   const counts = data.breakdown.map(b => (data.masked ? 0 : (typeof b.count === 'number' ? b.count : 0)));
 
   state.charts.queryBar = new Chart(ctx, {
@@ -555,7 +602,7 @@ function selectStep(stepNumber) {
     const node = document.getElementById(`stepNode${i}`);
     if (!node) continue;
     const badge = node.querySelector('span:first-child');
-    
+
     if (i === stepNumber) {
       node.className = "step-node active-step flex flex-col items-center group";
       badge.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-blue-400 bg-blue-600 text-white shadow-lg shadow-blue-500/50";
@@ -691,7 +738,6 @@ function renderStepContent(stepNum) {
 
     case 3:
       // Step 3: SQL Validator AST Guardrail Check
-      const g = stepObj.data.guardrails_checked;
       html = `
         <div class="space-y-4">
           <div class="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -814,7 +860,7 @@ function renderStepContent(stepNum) {
             <span class="text-[11px] font-mono text-emerald-400">DATA ISOLATED IN ENCLAVES</span>
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
-            ${stepObj.description}
+            ${stepObj.description || ''}
           </p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             ${hs.map((h, i) => `
@@ -900,7 +946,7 @@ function renderStepContent(stepNum) {
                 </div>
                 <div class="text-xs font-semibold text-white">${p.party_name}</div>
                 <div class="text-[11px] text-slate-400 font-mono">
-                  Shares: [${p.received_shares.join(', ')}]
+                  Shares: [${(p.received_shares || []).join(', ')}]
                 </div>
                 <div class="pt-2 border-t border-indigo-900/60 flex items-baseline justify-between">
                   <span class="text-[11px] text-slate-400">Partial Sum:</span>
@@ -911,7 +957,7 @@ function renderStepContent(stepNum) {
           </div>
           <div class="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/60 to-indigo-950/60 border border-blue-800/50 flex items-center justify-between">
             <span class="text-xs text-slate-300 font-semibold">Reconstruction Formula:</span>
-            <span class="text-sm font-mono font-bold text-white">${stepObj.data.reconstruction_formula}</span>
+            <span class="text-sm font-mono font-bold text-white">${stepObj.data.reconstruction_formula || 'Sum(party_partial_sums) mod p = total_count'}</span>
           </div>
         </div>
       `;
@@ -928,7 +974,7 @@ function renderStepContent(stepNum) {
           <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 font-mono text-xs">
             <div>
               <div class="text-slate-500 text-[10px] uppercase">Audit Block ID</div>
-              <div class="text-slate-200 font-bold">${stepObj.data.entry_id}</div>
+              <div class="text-slate-200 font-bold">${stepObj.data.entry_id || stepObj.data.block_index}</div>
             </div>
             <div>
               <div class="text-slate-500 text-[10px] uppercase">Current Query Hash</div>
@@ -995,11 +1041,22 @@ function renderStepContent(stepNum) {
 // Analytics Dashboard Charts
 // -----------------------------------------------------------------------------
 async function loadAnalyticsData() {
+  if (!state.researcher.token) {
+    state.trendsData = FALLBACK_TRENDS;
+    state.comparisonData = FALLBACK_COMPARISON;
+    return;
+  }
+
   try {
+    const headers = { 'Authorization': `Bearer ${state.researcher.token}` };
     const [trendsRes, comparisonRes] = await Promise.all([
-      fetch(`${API_BASE}/api/analytics/trends`),
-      fetch(`${API_BASE}/api/analytics/hospital-comparison`)
+      fetch(`${API_BASE}/api/analytics/trends`, { headers }),
+      fetch(`${API_BASE}/api/analytics/hospital-comparison`, { headers })
     ]);
+    if (trendsRes.status === 401 || comparisonRes.status === 401) {
+      clearSessionAndRedirectToLogin();
+      return;
+    }
     if (!trendsRes.ok || !comparisonRes.ok) throw new Error("Non-OK response");
     state.trendsData = await trendsRes.json();
     state.comparisonData = await comparisonRes.json();
@@ -1060,26 +1117,40 @@ function renderAnalyticsCharts() {
     });
   }
 
-  // Condition Comparison Bar Chart
+  // Condition Comparison Bar Chart — built dynamically from whichever
+  // hospital keys the response actually contains. The real backend varies
+  // this by role: a cross-hospital researcher gets HOSP_A/B/C, a "doctor"
+  // only gets their own single hospital's key, and real values are always
+  // the literal string "isolated" (never a raw per-hospital number).
   const compCtx = document.getElementById('conditionComparisonChart');
   if (compCtx) {
     if (state.charts.comparison) state.charts.comparison.destroy();
 
     const labels = state.comparisonData.conditions;
-    const hospAData = state.comparisonData.data.map(d => d.HOSP_A);
-    const hospBData = state.comparisonData.data.map(d => d.HOSP_B);
-    const hospCData = state.comparisonData.data.map(d => d.HOSP_C);
+
+    const hospitalIds = [];
+    state.comparisonData.data.forEach(row => {
+      Object.keys(row).forEach(k => {
+        if (k !== 'condition' && k !== 'total' && !hospitalIds.includes(k)) {
+          hospitalIds.push(k);
+        }
+      });
+    });
+
+    const barColors = ['#3b82f6', '#6366f1', '#06b6d4', '#10b981'];
+    const datasets = hospitalIds.map((id, idx) => ({
+      label: (state.comparisonData.hospitals && state.comparisonData.hospitals[idx]) || id,
+      data: state.comparisonData.data.map(row => {
+        const v = row[id];
+        return typeof v === 'number' ? v : 0;
+      }),
+      backgroundColor: barColors[idx % barColors.length],
+      borderRadius: 4
+    }));
 
     state.charts.comparison = new Chart(compCtx, {
       type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: 'Hospital A', data: hospAData, backgroundColor: '#3b82f6', borderRadius: 4 },
-          { label: 'Hospital B', data: hospBData, backgroundColor: '#6366f1', borderRadius: 4 },
-          { label: 'Hospital C', data: hospCData, backgroundColor: '#06b6d4', borderRadius: 4 }
-        ]
-      },
+      data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -1130,53 +1201,4 @@ function copyAuditJson() {
   if (!state.queryData) return;
   navigator.clipboard.writeText(JSON.stringify(state.queryData, null, 2));
   alert("Full audit JSON copied to clipboard!");
-}
-
-// -----------------------------------------------------------------------------
-// Researcher Login / Auth Modal
-// -----------------------------------------------------------------------------
-function openLoginModal() {
-  document.getElementById('loginModal').classList.remove('hidden');
-}
-
-function closeLoginModal() {
-  document.getElementById('loginModal').classList.add('hidden');
-}
-
-async function handleLoginSubmit(e) {
-  e.preventDefault();
-  const username = document.getElementById('loginUsername').value;
-  const purpose = document.getElementById('loginPurpose').value;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: username,
-        password: "password123",
-        purpose: purpose
-      })
-    });
-
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const data = await res.json();
-    state.researcher = {
-      id: data.researcher.id,
-      name: data.researcher.name,
-      purpose: purpose,
-      consentId: data.researcher.dpdp_consent_id
-    };
-  } catch (err) {
-    console.warn("Backend login offline, applying local session profile:", err);
-    state.researcher = {
-      id: username === "dr_aditi" ? "R001" : "R002",
-      name: username === "dr_aditi" ? "Dr. Aditi Sharma" : "Dr. Vikram Patel",
-      purpose: purpose,
-      consentId: `CONSENT-DPDP-2024-${Math.floor(1000 + Math.random() * 9000)}`
-    };
-  }
-
-  document.getElementById('headerResearcherName').textContent = state.researcher.name;
-  closeLoginModal();
 }
