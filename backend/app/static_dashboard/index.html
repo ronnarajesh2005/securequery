@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Updated Static Mount Route for Stylesheet -->
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- Top Navigation / Header -->
+  <!-- ========================================================================= -->
+  <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Badges -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-blue-400 bg-clip-text text-transparent">
+              SecureQuery
+            </h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+              Track C • SMPC 3.0
+            </span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>DPDP Act 2023 Aligned</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Actions -->
+      <div class="flex items-center space-x-4">
+        <nav class="flex space-x-1 bg-slate-950/80 p-1 rounded-lg border border-slate-800">
+          <button id="tabBtnQuery" onclick="switchTab('query')" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all bg-blue-600 text-white shadow-sm flex items-center space-x-1.5">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+            <span>Query Studio</span>
+          </button>
+          <button id="tabBtnAnalytics" onclick="switchTab('analytics')" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+            <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+            <span>Analytics</span>
+          </button>
+          <button id="tabBtnTransparency" onclick="switchTab('transparency')" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center space-x-1.5">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span>Transparency View</span>
+          </button>
+        </nav>
+
+        <!-- Split-Screen Toggle Switch -->
+        <div class="hidden md:flex items-center space-x-2 pl-2 border-l border-slate-800">
+          <label class="text-xs text-slate-400 font-medium cursor-pointer" for="splitScreenToggle">Split-Screen</label>
+          <button id="splitScreenToggle" onclick="toggleSplitScreen()" class="w-9 h-5 bg-blue-600 rounded-full p-0.5 transition-colors duration-200 ease-in-out relative focus:outline-none">
+            <div id="splitToggleKnob" class="w-4 h-4 bg-white rounded-full shadow-md transform translate-x-4 transition-transform duration-200 ease-in-out"></div>
+          </button>
+        </div>
+
+        <!-- Backend Status Pill -->
+        <div id="backendStatusPill" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="backendStatusText">Backend Connected</span>
+        </div>
+
+        <!-- Researcher Profile Pill -->
+        <button onclick="openLoginModal()" class="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs transition">
+          <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+          <span id="headerResearcherName" class="font-medium text-slate-200">Dr. Aditi Sharma</span>
+          <span class="text-slate-500 font-mono">R001</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- Main Content Container -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- Project Title Hero Banner -->
+    <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900/90 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="space-y-1">
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold uppercase tracking-wider">Project Architecture</span>
+          <span class="text-xs text-slate-400 font-medium">Healthcare Data Protection Standard</span>
+        </div>
+        <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">
+          SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics
+        </h2>
+        <p class="text-xs text-slate-400">
+          Enabling privacy-preserving clinical analytics across distributed, data-isolated hospital databases aligned with India's DPDP Act 2023 principles.
+        </p>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="px-2.5 py-1 text-xs font-mono rounded-lg bg-blue-950/80 text-blue-300 border border-blue-800 flex items-center space-x-1.5">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>SMPC 3-Node</span>
+        </span>
+        <span class="px-2.5 py-1 text-xs font-mono rounded-lg bg-emerald-950/80 text-emerald-300 border border-emerald-800 flex items-center space-x-1.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>DPDP Aligned</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: QUERY STUDIO (Researcher View + Split-Screen Transparency)   -->
+    <!-- ===================================================================== -->
+    <section id="viewQuery" class="space-y-6">
+      
+      <!-- Query Input Box & Presets -->
+      <div class="glass-panel p-5 sm:p-6 rounded-2xl shadow-xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-semibold text-slate-300 flex items-center space-x-2">
+              <i data-lucide="message-square-code" class="w-4 h-4 text-blue-400"></i>
+              <span>Enter Clinical Research Query (Natural Language)</span>
+            </label>
+            <div class="flex items-center space-x-2 text-xs text-slate-400">
+              <span class="text-slate-500">Target Schema:</span>
+              <span class="font-mono text-slate-300">patients, conditions, observations</span>
+            </div>
+          </div>
+
+          <!-- Main Input Field -->
+          <form id="queryForm" onsubmit="handleQuerySubmit(event)" class="relative flex items-center">
+            <input 
+              type="text" 
+              id="queryInput" 
+              value="How many diabetic patients across Hospital A, B, C?" 
+              placeholder="e.g. How many diabetic patients across Hospital A, B, C?"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 pr-32 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner font-normal"
+            />
+            <button 
+              type="submit" 
+              id="submitBtn"
+              class="absolute right-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow-md shadow-blue-600/30 flex items-center space-x-1.5 transition active:scale-95 disabled:opacity-50"
+            >
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+              <span>Run SMPC</span>
+            </button>
+          </form>
+
+          <!-- Quick Query Preset Pills -->
+          <div class="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            <span class="text-slate-400 font-medium">Quick Presets:</span>
+            <button onclick="setQuery('How many diabetic patients across Hospital A, B, C?')" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-full border border-slate-700 transition flex items-center space-x-1">
+              <span>🩺 Diabetic Patients (Cross-Hospital)</span>
+            </button>
+            <button onclick="setQuery('What is the patient count for patients on metformin across hospitals?')" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-full border border-slate-700 transition flex items-center space-x-1">
+              <span>💊 Metformin Patients</span>
+            </button>
+            <button onclick="setQuery('Count of patients with rare mutation X in Hospital A')" class="bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 px-3 py-1 rounded-full border border-amber-800/40 transition flex items-center space-x-1">
+              <span>⚠️ Test Privacy Mask (&lt;5 threshold)</span>
+            </button>
+            <button onclick="setQuery('SELECT name, birth_date, address FROM patients')" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 px-3 py-1 rounded-full border border-rose-800/40 transition flex items-center space-x-1">
+              <span>🚫 Test PII Block Guardrail</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Results Area (Dynamic Split-Screen vs Full Width) -->
+      <div id="resultsContainer" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- LEFT COLUMN: Researcher Clinical Results -->
+        <div id="researcherResultCol" class="lg:col-span-5 space-y-6">
+          
+          <!-- Aggregated Metric Card -->
+          <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+                <span>SMPC Aggregated Clinical Result</span>
+              </span>
+              <span id="queryExecTime" class="text-xs font-mono text-slate-500">328 ms</span>
+            </div>
+
+            <!-- Value Display -->
+            <div id="resultValueDisplay" class="py-2">
+              <div class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white flex items-baseline space-x-2">
+                <span id="metricNumber">102</span>
+                <span id="metricUnit" class="text-lg font-medium text-slate-400">diabetic patients</span>
+              </div>
+              <p id="resultSubtitle" class="text-xs text-slate-400 mt-1">
+                Computed across Hospital A, B, and C via Secure Multi-Party Computation.
+              </p>
+            </div>
+
+            <!-- Masked Warning Badge -->
+            <div id="maskedBadge" class="hidden masked-badge p-4 rounded-xl space-y-2">
+              <div class="flex items-center space-x-2 text-amber-400 font-semibold text-sm">
+                <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                <span>Below Disclosure Threshold</span>
+              </div>
+              <p class="text-xs text-amber-200/80 leading-relaxed">
+                This cohort size is below the mandatory DPDP k-anonymity threshold (<span class="font-mono font-bold">k &lt; 5</span>). 
+                To protect patient re-identification privacy, individual counts are intentionally suppressed.
+              </p>
+              <div class="text-[11px] font-mono text-amber-300/60 pt-1">
+                Status: PRIVACY_MASK_ENFORCED • Section 4(1) DPDP Act
+              </div>
+            </div>
+
+            <!-- Hospital Breakdown Table -->
+            <div class="space-y-2 pt-2">
+              <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Hospital Distribution</h4>
+              <div class="rounded-xl border border-slate-800/80 overflow-hidden bg-slate-900/60">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-slate-800/50 text-slate-400 font-medium border-b border-slate-800">
+                    <tr>
+                      <th class="p-2.5">Hospital Node</th>
+                      <th class="p-2.5 text-right">Computed Count</th>
+                      <th class="p-2.5 text-right">Privacy Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hospitalBreakdownRows" class="divide-y divide-slate-800/50 text-slate-300 font-mono">
+                    <tr>
+                      <td class="p-2.5 font-sans flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                        <span>Hospital A (City General)</span>
+                      </td>
+                      <td class="p-2.5 text-right font-bold text-white">30</td>
+                      <td class="p-2.5 text-right text-emerald-400 font-sans text-[11px]">Enclave Isolated</td>
+                    </tr>
+                    <tr>
+                      <td class="p-2.5 font-sans flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                        <span>Hospital B (Apollo Memorial)</span>
+                      </td>
+                      <td class="p-2.5 text-right font-bold text-white">47</td>
+                      <td class="p-2.5 text-right text-emerald-400 font-sans text-[11px]">Enclave Isolated</td>
+                    </tr>
+                    <tr>
+                      <td class="p-2.5 font-sans flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span>Hospital C (St. Jude Medical)</span>
+                      </td>
+                      <td class="p-2.5 text-right font-bold text-white">25</td>
+                      <td class="p-2.5 text-right text-emerald-400 font-sans text-[11px]">Enclave Isolated</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Mini Chart -->
+            <div class="pt-2">
+              <canvas id="queryBarChart" class="w-full h-40"></canvas>
+            </div>
+
+          </div>
+
+          <!-- DPDP Compliance Assurance Box -->
+          <div class="glass-panel p-4 rounded-xl border border-slate-800 text-xs space-y-2 text-slate-400">
+            <div class="flex items-center space-x-2 text-slate-200 font-semibold">
+              <i data-lucide="lock" class="w-4 h-4 text-emerald-400"></i>
+              <span>Local Data Isolation (No Central Raw Records)</span>
+            </div>
+            <p>
+              Under SMPC, no hospital's raw database records or unmasked local totals were transmitted to the central server. The result was computed via secret sharing across 3 compute parties.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: The Technical Transparency Split-Screen View -->
+        <div id="transparencyCol" class="lg:col-span-7 space-y-4">
+          
+          <div class="glass-panel p-6 rounded-2xl border border-blue-500/20 shadow-2xl relative">
+            
+            <!-- Transparency Header & Step Controls -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  <h3 class="font-bold text-base text-white">Technical Transparency View</h3>
+                  <span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded border border-blue-700 font-mono">
+                    Step <span id="activeStepNumber">1</span> of 10
+                  </span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Visual proof of the 10 cryptographic and privacy pipeline stages
+                </p>
+              </div>
+
+              <!-- Playback Controls -->
+              <div class="flex items-center space-x-2">
+                <button onclick="prevStep()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-xs flex items-center space-x-1" title="Previous Step">
+                  <i data-lucide="skip-back" class="w-3.5 h-3.5"></i>
+                </button>
+                <button id="playPauseBtn" onclick="togglePlayReplay()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center space-x-1 shadow-sm">
+                  <i id="playPauseIcon" data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+                  <span id="playPauseLabel">Auto Play</span>
+                </button>
+                <button onclick="nextStep()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-xs flex items-center space-x-1" title="Next Step">
+                  <i data-lucide="skip-forward" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Step Progress Track (10 clickable nodes) -->
+            <div class="pt-4 pb-2 overflow-x-auto">
+              <div class="flex items-center justify-between min-w-[540px] px-2">
+                <button onclick="selectStep(1)" id="stepNode1" class="step-node active-step flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border">1</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Prompt</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(2)" id="stepNode2" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">2</span>
+                  <span class="text-[10px] text-slate-400 mt-1">SQL Gen</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(3)" id="stepNode3" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">3</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Validator</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(4)" id="stepNode4" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">4</span>
+                  <span class="text-[10px] text-slate-400 mt-1">DPDP</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(5)" id="stepNode5" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">5</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Risk</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(6)" id="stepNode6" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">6</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Local</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(7)" id="stepNode7" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">7</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Shares</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(8)" id="stepNode8" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">8</span>
+                  <span class="text-[10px] text-slate-400 mt-1">SMPC</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(9)" id="stepNode9" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">9</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Audit</span>
+                </button>
+                <div class="flex-1 h-0.5 bg-slate-800 mx-1"></div>
+
+                <button onclick="selectStep(10)" id="stepNode10" class="step-node flex flex-col items-center group">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono border border-slate-700 bg-slate-800 text-slate-400">10</span>
+                  <span class="text-[10px] text-slate-400 mt-1">Result</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Step Details Body -->
+            <div id="stepDetailsBody" class="mt-4 p-5 rounded-xl bg-slate-900/90 border border-slate-800 min-h-[360px] flex flex-col justify-between">
+              <!-- Content injected dynamically by app.js -->
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: ANALYTICS DASHBOARD (Trends & Cross-Hospital Comparison)     -->
+    <!-- ===================================================================== -->
+    <section id="viewAnalytics" class="space-y-6 hidden">
+      
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white">SecureQuery: A Secure Multi-Party Computation Framework for Privacy-Preserving Hospital Data Analytics</h2>
+          <p class="text-xs text-slate-400">Multi-Party Epidemiological Insights across Hospital A, B, and C</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-400">Time Range:</span>
+          <select class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-slate-200">
+            <option>2020 - 2024 (5 Years)</option>
+            <option>2023 - 2024</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- KPI Stats Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="text-xs text-slate-400 font-medium">Total Network Cohort</div>
+          <div class="text-2xl font-bold text-white font-mono">1,842</div>
+          <div class="text-[11px] text-emerald-400 flex items-center space-x-1">
+            <i data-lucide="trending-up" class="w-3 h-3"></i>
+            <span>+14.2% YoY Growth</span>
+          </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="text-xs text-slate-400 font-medium">Hospitals Connected</div>
+          <div class="text-2xl font-bold text-white font-mono">3 / 3</div>
+          <div class="text-[11px] text-blue-400">City General, Apollo, St. Jude</div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="text-xs text-slate-400 font-medium">Privacy Mechanism</div>
+          <div class="text-2xl font-bold text-emerald-400 font-mono">3-PARTY SMPC</div>
+          <div class="text-[11px] text-slate-400">Additive Secret Sharing (3-party)</div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-xl border border-slate-800 space-y-1">
+          <div class="text-xs text-slate-400 font-medium">DPDP Audit Chaining</div>
+          <div class="text-2xl font-bold text-indigo-400 font-mono">SHA-256</div>
+          <div class="text-[11px] text-indigo-400">Tamper-Evident Hash Chain</div>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Trend Chart: Year-over-Year Prevalence -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i data-lucide="line-chart" class="w-4 h-4 text-blue-400"></i>
+              <span>Year-over-Year Diabetes Prevalence (2020-2024)</span>
+            </h3>
+            <span class="text-[11px] font-mono text-slate-400">SMPC Aggregated</span>
+          </div>
+          <div class="h-64">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Comparison Bar Chart: Multi-Condition across Hospitals -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-400"></i>
+              <span>Cross-Hospital Condition Comparison</span>
+            </h3>
+            <span class="text-[11px] font-mono text-slate-400">Hosp A vs B vs C</span>
+          </div>
+          <div class="h-64">
+            <canvas id="conditionComparisonChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 3: FULL TECHNICAL TRANSPARENCY AUDIT SCREEN                     -->
+    <!-- ===================================================================== -->
+    <section id="viewTransparencyFull" class="space-y-6 hidden">
+      <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-blue-400"></i>
+              <span>Full Pipeline Technical Inspector</span>
+            </h2>
+            <p class="text-xs text-slate-400">End-to-End Cryptographic Trace from Natural Language to SMPC Output</p>
+          </div>
+          <button onclick="copyAuditJson()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center space-x-1.5">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copy Raw Audit JSON</span>
+          </button>
+        </div>
+
+        <!-- 10 Full Cards Stacked -->
+        <div id="fullAuditCardsStack" class="space-y-4">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- Researcher Auth / Login Modal                                            -->
+  <!-- ========================================================================= -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-panel max-w-md w-full p-6 rounded-2xl border border-slate-700 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="shield" class="w-5 h-5 text-blue-400"></i>
+          <h3 class="font-bold text-white text-sm">Researcher DPDP Authorization</h3>
+        </div>
+        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Researcher ID / Username</label>
+          <input type="text" id="loginUsername" value="researcher_r001" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Access Credential</label>
+          <input type="password" id="loginPassword" value="••••••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white font-mono" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">DPDP Purpose</label>
+          <select id="loginPurpose" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white">
+            <option value="EPIDEMIOLOGICAL_RESEARCH">EPIDEMIOLOGICAL_RESEARCH (Approved)</option>
+            <option value="PUBLIC_HEALTH_SURVEILLANCE">PUBLIC_HEALTH_SURVEILLANCE (Approved)</option>
+            <option value="COMMERCIAL_MARKETING">COMMERCIAL_MARKETING (Unauthorized)</option>
+          </select>
+        </div>
+
+        <div class="p-3 rounded-lg bg-blue-950/40 border border-blue-900/60 text-[11px] text-blue-200">
+          <strong>Consent ID:</strong> CONSENT-DPDP-2024-9841<br/>
+          <strong>Section:</strong> India DPDP Act 2023 Sec 4(1)
+        </div>
+
+        <div class="pt-2 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeLoginModal()" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium">Verify & Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Updated Static Mount Route for JS Controller -->
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

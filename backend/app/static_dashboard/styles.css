@@ -1,0 +1,103 @@
+/* track_c/frontend/styles.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #0b0f19;
+  color: #e2e8f0;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphism cards */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+/* Hospital Container Box Styling */
+.hospital-container-box {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1.5px solid #334155;
+  transition: all 0.3s ease;
+}
+
+.hospital-container-box.active {
+  border-color: #10b981;
+  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* Compute Party Box Styling */
+.party-box {
+  background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9));
+  border: 1.5px solid #4338ca;
+  transition: all 0.3s ease;
+}
+
+.party-box.active {
+  border-color: #818cf8;
+  box-shadow: 0 0 20px -3px rgba(129, 140, 248, 0.35);
+}
+
+/* Step badges & connectors */
+.step-node {
+  transition: all 0.25s ease;
+}
+
+.step-node.active-step {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+  transform: scale(1.05);
+}
+
+.step-node.completed-step {
+  background-color: #065f46;
+  color: #34d399;
+  border-color: #10b981;
+}
+
+/* Pulse animation for secret shares */
+@keyframes sharePulse {
+  0% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(-4px); opacity: 1; filter: brightness(1.2); }
+  100% { transform: translateY(0); opacity: 0.7; }
+}
+
+.share-packet {
+  animation: sharePulse 2s infinite ease-in-out;
+}
+
+/* Privacy Masking Badge */
+.masked-badge {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.15));
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, BigInteger, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -13,6 +13,7 @@ class Researcher(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
     role = Column(String(50), nullable=False, default="researcher")
+    hospital_scope = Column(String(50), nullable=True, default=None)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -35,8 +36,6 @@ class ResearcherPermission(Base):
     data_localization_ok = Column(Boolean, nullable=False, default=True)
     granted_at = Column(DateTime, server_default=func.now())
     expires_at = Column(DateTime, nullable=True)
-from sqlalchemy import Column, BigInteger, Text, String, Boolean
-from sqlalchemy.sql import func
 
 
 class AuditLog(Base):

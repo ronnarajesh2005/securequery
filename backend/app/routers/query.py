@@ -1,3 +1,4 @@
+from app.core.hospital_db import HOSPITAL_DBS, run_sql_on_hospital
 import traceback
 import psycopg2
 import sqlglot
@@ -18,12 +19,6 @@ from app.routers.auth import get_current_user
 from app.models.auth_models import Researcher
 
 router = APIRouter(prefix="/query", tags=["query"])
-
-HOSPITAL_DBS = {
-    "hospital_a": {"host": "localhost", "port": 5433, "database": "hospital_a", "user": "hospital_a_admin", "password": "HospitalA_2026!"},
-    "hospital_b": {"host": "localhost", "port": 5434, "database": "hospital_b", "user": "hospital_b_admin", "password": "HospitalB_2026!"},
-    "hospital_c": {"host": "localhost", "port": 5435, "database": "hospital_c", "user": "hospital_c_admin", "password": "HospitalC_2026!"},
-}
 
 
 class QueryRequest(BaseModel):
@@ -49,32 +44,6 @@ def adapt_sql_for_single_hospital(sql: str) -> str:
     tree.set("expressions", new_expressions)
 
     return tree.sql(dialect="postgres")
-
-
-def run_sql_on_hospital(hospital_id: str, sql: str) -> int:
-    config = HOSPITAL_DBS[hospital_id]
-    conn = psycopg2.connect(**config)
-    cur = conn.cursor()
-
-    try:
-        clean_sql = adapt_sql_for_single_hospital(sql)
-    except Exception as e:
-        print(f"[{hospital_id}] SQL ADAPT ERROR: {e}")
-        conn.close()
-        return 0
-
-    try:
-        cur.execute(clean_sql)
-        rows = cur.fetchall()
-        if not rows:
-            return 0
-        return int(rows[0][0]) if len(rows[0]) == 1 else len(rows)
-    except Exception as e:
-        print(f"[{hospital_id}] SQL ERROR: {e}")
-        return 0
-    finally:
-        cur.close()
-        conn.close()
 
 
 @router.post("/ask")
@@ -120,6 +89,10 @@ def ask_query(
         processed = process_multivalue_result(per_hospital_results)
         analytics = build_analytics(processed)
         overall_disclosed = any(r["disclosed"] for r in processed)
+        total_value = sum(
+            r["value"] for r in processed
+            if r.get("disclosed") and isinstance(r.get("value"), (int, float))
+        )
 
         log_event(
             audit_db,
@@ -131,12 +104,44 @@ def ask_query(
             disclosed=overall_disclosed,
         )
 
+        # --- Privacy fix: never expose per-hospital raw values, anywhere ---
+        # SMPC's guarantee is that no party's individual input ever reaches
+        # the researcher's screen, regardless of whether the aggregate is
+        # safe to disclose. Only the combined total is safe to show.
+        masked_results = [
+            {
+                "group_key": r["group_key"],
+                "disclosed": "isolated",
+                "value": "isolated",
+                "risk_result": r.get("risk_result"),
+            }
+            for r in processed
+        ]
+
+        masked_analytics = {
+            "stats": analytics.get("stats", {}),
+            "charts": [
+                {**chart, "values": [0 for _ in chart.get("values", [])]}
+                for chart in analytics.get("charts", [])
+            ],
+            "tables": [
+                {
+                    **table,
+                    "rows": [
+                        {**row, "value": "isolated"} for row in table.get("rows", [])
+                    ],
+                }
+                for table in analytics.get("tables", [])
+            ],
+        }
+
         return {
             "question": payload.question,
             "purpose": payload.purpose,
             "generated_sql": safe_sql,
-            "results": processed,
-            "analytics": analytics,
+            "total_disclosed_value": total_value if overall_disclosed else None,
+            "results": masked_results,
+            "analytics": masked_analytics,
         }
 
     except HTTPException:
